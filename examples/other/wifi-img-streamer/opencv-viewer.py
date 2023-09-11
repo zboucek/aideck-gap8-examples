@@ -63,7 +63,10 @@ data_buffer = bytearray()
 
 def rx_bytes(size):
   data = bytearray()
+  # i=0
   while len(data) < size:
+    # i = i+1
+    # print(i)
     data.extend(client_socket.recv(size-len(data)))
   return data
 
@@ -74,12 +77,13 @@ count = 0
 
 while(1):
     # First get the info
+    print("reading...")
     packetInfoRaw = rx_bytes(4)
-    #print(packetInfoRaw)
+    print(packetInfoRaw)
     [length, routing, function] = struct.unpack('<HBB', packetInfoRaw)
-    #print("Length is {}".format(length))
-    #print("Route is 0x{:02X}->0x{:02X}".format(routing & 0xF, routing >> 4))
-    #print("Function is 0x{:02X}".format(function))
+    print("Length is {}".format(length))
+    print("Route is 0x{:02X}->0x{:02X}".format(routing & 0xF, routing >> 4))
+    print("Function is 0x{:02X}".format(function))
 
     imgHeader = rx_bytes(length - 2)
     #print(imgHeader)
@@ -87,10 +91,10 @@ while(1):
     [magic, width, height, depth, format, size] = struct.unpack('<BHHBBI', imgHeader)
 
     if magic == 0xBC:
-      #print("Magic is good")
-      #print("Resolution is {}x{} with depth of {} byte(s)".format(width, height, depth))
-      #print("Image format is {}".format(format))
-      #print("Image size is {} bytes".format(size))
+      print("Magic is good")
+      print("Resolution is {}x{} with depth of {} byte(s)".format(width, height, depth))
+      print("Image format is {}".format(format))
+      print("Image size is {} bytes".format(size))
 
       # Now we start rx the image, this will be split up in packages of some size
       imgStream = bytearray()
@@ -98,7 +102,7 @@ while(1):
       while len(imgStream) < size:
           packetInfoRaw = rx_bytes(4)
           [length, dst, src] = struct.unpack('<HBB', packetInfoRaw)
-          #print("Chunk size is {} ({:02X}->{:02X})".format(length, src, dst))
+          print("Chunk size is {} ({:02X}->{:02X})".format(length, src, dst))
           chunk = rx_bytes(length - 2)
           imgStream.extend(chunk)
      

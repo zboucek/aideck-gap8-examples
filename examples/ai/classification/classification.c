@@ -56,6 +56,10 @@ static struct pi_device camera;
 static struct pi_device cluster_dev;
 static struct pi_cluster_task *task;
 static struct pi_cluster_conf cluster_conf;
+// static const char* classes[] = {"deadpool", "kachna", "patrik", "pozadi", "robot", "thanos"}; 
+// static const char* classes[] = {"Kachnička", "Lokomotiva", "Patrik", "Pozadí", "Prase", "Robot"};
+static const char* classes[] = {"Kachnička", "Lokomotiva", "Pozadí", "Robot"};
+int num_classes = (sizeof(classes)/sizeof(*classes)); 
 
 AT_HYPERFLASH_FS_EXT_ADDR_TYPE __PREFIX(_L3_Flash) = 0;
 
@@ -76,14 +80,26 @@ static void cam_handler(void *arg)
   /* Run inference */
   pi_cluster_send_task_to_cl(&cluster_dev, task);
 
-  if (Output_1[0] > Output_1[1])
-  {
-    cpxPrintToConsole(LOG_TO_CRTP, "Packet,     confidence: %hd\n", Output_1[0] - Output_1[1]);
+  int maxIndex = 0;
+  int maxValue = Output_1[0];
+
+  for(int i=1;i<num_classes;i++) {
+    if (Output_1[i] > maxValue) {
+      maxIndex = i;
+      maxValue = Output_1[i]; 
+    }
   }
-  else
-  {
-    cpxPrintToConsole(LOG_TO_CRTP, "Background, confidence: %hd\n", Output_1[1] - Output_1[0]);
+  cpxPrintToConsole(LOG_TO_CRTP, "Class probabilities: ");
+  for(int i=0; i<num_classes; i++) {
+    float confidence = (float)Output_1[i] / INT16_MAX * 100.0f;
+    cpxPrintToConsole(LOG_TO_CRTP, "%s: %.2f%%\n, ", classes[i], confidence);
   }
+
+  cpxPrintToConsole(LOG_TO_CRTP, "\n");
+  
+  float confidence = (float)maxValue / INT16_MAX * 100.0f;
+  // cpxPrintToConsole(LOG_TO_CRTP, "Predicted: %s\n", classes[maxIndex]);
+  // cpxPrintToConsole(LOG_TO_CRTP, "Predicted: %s (%.2f%%)\n", classes[maxIndex], confidence);
 
   pi_camera_capture_async(&camera, cameraBuffer, CAM_WIDTH * CAM_HEIGHT, pi_task_callback(&task1, cam_handler, NULL));
   pi_camera_control(&camera, PI_CAMERA_CMD_START, 0);
@@ -189,7 +205,7 @@ int classification()
   }
   cpxPrintToConsole(LOG_TO_CRTP, "Allocated memory for camera buffer\n");
 
-  Output_1 = (signed short *)pmsis_l2_malloc(2 * sizeof(signed short));
+  Output_1 = (signed short *)pmsis_l2_malloc(6 * sizeof(signed short));
   if (Output_1 == NULL)
   {
     cpxPrintToConsole(LOG_TO_CRTP, "Failed to allocate memory for output\n");

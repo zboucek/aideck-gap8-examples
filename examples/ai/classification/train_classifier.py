@@ -130,7 +130,7 @@ if __name__ == "__main__":
             ),
             tf.keras.layers.Dropout(0.2),
             tf.keras.layers.GlobalAveragePooling2D(),
-            tf.keras.layers.Dense(units=2, activation="softmax"),
+            tf.keras.layers.Dense(units=4, activation="softmax"),
         ]
     )
 
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         for i in range(100):
             image = next(iter(dataset_list))
             image = tf.io.read_file(image)
-            image = tf.io.decode_jpeg(image, channels=1)
+            image = tf.io.decode_png(image, channels=1)
             image = tf.image.resize(
                 image, [args.image_width, args.image_height]
             )
