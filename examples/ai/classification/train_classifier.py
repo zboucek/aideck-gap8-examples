@@ -54,12 +54,19 @@ def parse_args():
     args.add_argument(
         "--image_channels", dest="image_channels", type=int, default=1
     )
+    
+    args.add_argument(
+        "--print_plot", dest="print_plot", type=bool, default=False
+    )
 
     return args.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
+    if args.print_plot:
+        import matplotlib.pyplot as plt
+        
     ROOT_PATH = (
         f"{os.path.abspath(os.curdir)}/GAP8/ai_examples/classification/"
     )
@@ -94,6 +101,12 @@ if __name__ == "__main__":
         class_mode="categorical",
         color_mode="grayscale",
     )
+    
+    """Now save the class labels to a text file:"""
+    print (train_generator.class_indices)
+    labels = '\n'.join(sorted(train_generator.class_indices.keys()))
+    with open(f'{ROOT_PATH}/class_labels.txt', 'w') as f:
+        f.write(labels)
 
     FIRST_LAYER_STRIDE = 2
 
@@ -154,6 +167,33 @@ if __name__ == "__main__":
         validation_data=val_generator,
         validation_steps=len(val_generator),
     )
+    
+    if args.print_plot:
+        acc = history.history['accuracy']
+        val_acc = history.history['val_accuracy']
+
+        loss = history.history['loss']
+        val_loss = history.history['val_loss']
+
+        plt.figure(figsize=(8, 8))
+        plt.subplot(2, 1, 1)
+        plt.plot(acc, label='Training Accuracy')
+        plt.plot(val_acc, label='Validation Accuracy')
+        plt.legend(loc='lower right')
+        plt.ylabel('Accuracy')
+        plt.ylim([min(plt.ylim()),1])
+        plt.title('Training and Validation Accuracy')
+
+        plt.subplot(2, 1, 2)
+        plt.plot(loss, label='Training Loss')
+        plt.plot(val_loss, label='Validation Loss')
+        plt.legend(loc='upper right')
+        plt.ylabel('Cross Entropy')
+        plt.ylim([0,1.0])
+        plt.title('Training and Validation Loss')
+        plt.xlabel('epoch')
+        plt.show()
+
 
     # Fine-tune the model
     print("Number of layers in the base model: ", len(base_model.layers))
@@ -184,6 +224,32 @@ if __name__ == "__main__":
         validation_data=val_generator,
         validation_steps=len(val_generator),
     )
+    
+    if args.print_plot:
+        acc = history_fine.history['accuracy']
+        val_acc = history_fine.history['val_accuracy']
+
+        loss = history_fine.history['loss']
+        val_loss = history_fine.history['val_loss']
+
+        plt.figure(figsize=(8, 8))
+        plt.subplot(2, 1, 1)
+        plt.plot(acc, label='Training Accuracy')
+        plt.plot(val_acc, label='Validation Accuracy')
+        plt.legend(loc='lower right')
+        plt.ylabel('Accuracy')
+        plt.ylim([min(plt.ylim()),1])
+        plt.title('Training and Validation Accuracy')
+
+        plt.subplot(2, 1, 2)
+        plt.plot(loss, label='Training Loss')
+        plt.plot(val_loss, label='Validation Loss')
+        plt.legend(loc='upper right')
+        plt.ylabel('Cross Entropy')
+        plt.ylim([0,1.0])
+        plt.title('Training and Validation Loss')
+        plt.xlabel('epoch')
+        plt.show()
 
     # Convert to TensorFlow lite
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
