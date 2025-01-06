@@ -5,3 +5,5 @@ examples/**/BUILD*
 examples/**/lib*
 BUILD
 examples/ai/classification/images/*
+examples/ai/classification/images_lab_bw.zip
+examples/ai/classification/class_labels.txt

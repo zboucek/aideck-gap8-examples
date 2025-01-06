@@ -25,8 +25,10 @@ import os
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.applications import MobileNetV3Small
 import PIL.Image
 import scipy
+
 
 def parse_args():
     args = argparse.ArgumentParser(
@@ -35,9 +37,7 @@ def parse_args():
     )
 
     args.add_argument("--epochs", dest="epochs", type=int, default=20)
-    args.add_argument(
-        "--finetune_epochs", dest="finetune_epochs", type=int, default=20
-    )
+    args.add_argument("--finetune_epochs", dest="finetune_epochs", type=int, default=20)
     args.add_argument(
         "--dataset_path",
         metavar="dataset_path",
@@ -45,19 +45,11 @@ def parse_args():
         default="training_data",
     )
     args.add_argument("--batch_size", dest="batch_size", type=int, default=8)
-    args.add_argument(
-        "--image_width", dest="image_width", type=int, default=324
-    )
-    args.add_argument(
-        "--image_height", dest="image_height", type=int, default=244
-    )
-    args.add_argument(
-        "--image_channels", dest="image_channels", type=int, default=1
-    )
-    
-    args.add_argument(
-        "--print_plot", dest="print_plot", type=bool, default=False
-    )
+    args.add_argument("--image_width", dest="image_width", type=int, default=324)
+    args.add_argument("--image_height", dest="image_height", type=int, default=244)
+    args.add_argument("--image_channels", dest="image_channels", type=int, default=3)
+
+    args.add_argument("--print_plot", dest="print_plot", type=bool, default=False)
 
     return args.parse_args()
 
@@ -66,10 +58,8 @@ if __name__ == "__main__":
     args = parse_args()
     if args.print_plot:
         import matplotlib.pyplot as plt
-        
-    ROOT_PATH = (
-        f"{os.path.abspath(os.curdir)}/GAP8/ai_examples/classification/"
-    )
+
+    ROOT_PATH = f"{os.path.abspath(os.curdir)}/examples/ai/classification/"
     DATASET_PATH = f"{ROOT_PATH}{args.dataset_path}"
     if not os.path.exists(DATASET_PATH):
         ROOT_PATH = "./"
@@ -90,7 +80,7 @@ if __name__ == "__main__":
         target_size=(args.image_width, args.image_height),
         batch_size=args.batch_size,
         class_mode="categorical",
-        color_mode="grayscale",
+        color_mode="rgb",
     )
 
     val_datagen = tf.keras.preprocessing.image.ImageDataGenerator()
@@ -99,53 +89,38 @@ if __name__ == "__main__":
         target_size=(args.image_width, args.image_height),
         batch_size=args.batch_size,
         class_mode="categorical",
-        color_mode="grayscale",
+        color_mode="rgb",
     )
-    
+
     """Now save the class labels to a text file:"""
-    print (train_generator.class_indices)
-    labels = '\n'.join(sorted(train_generator.class_indices.keys()))
-    with open(f'{ROOT_PATH}/class_labels.txt', 'w') as f:
+    print(train_generator.class_indices)
+    labels = "\n".join(sorted(train_generator.class_indices.keys()))
+    with open(f"{ROOT_PATH}/class_labels.txt", "w") as f:
         f.write(labels)
 
     FIRST_LAYER_STRIDE = 2
 
-    # Create the base model from the pre-trained MobileNet V2
-    base_model = tf.keras.applications.MobileNetV2(
-        input_shape=(
-            96,
-            96,
-            3,
-        ),
+    # Create the base model from the pre-trained MobileNetV3Small
+    base_model = MobileNetV3Small(
+        input_shape=(324, 244, 3),
         include_top=False,
-        weights="imagenet",
-        alpha=0.35,
+        weights=None,
+        # weights="imagenet",
+        alpha=1.0,
+        minimalistic=True,
     )
     base_model.trainable = False
+    
+    # Define the number of classes from the train_generator's class_indices
+    num_classes = len(train_generator.class_indices)
 
-    # Add a custom head, which will predict the classes
-    model = tf.keras.Sequential(
-        [
-            tf.keras.Input(shape=(args.image_width, args.image_height, 1)),
-            tf.keras.layers.SeparableConvolution2D(
-                filters=3,
-                kernel_size=1,
-                # activation="relu",
-                activation=None,
-                strides=FIRST_LAYER_STRIDE,
-            ),
-            tf.keras.layers.experimental.preprocessing.Resizing(
-                96, 96, interpolation="bilinear"
-            ),
-            base_model,
-            tf.keras.layers.SeparableConvolution2D(
-                filters=32, kernel_size=3, activation="relu"
-            ),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.GlobalAveragePooling2D(),
-            tf.keras.layers.Dense(units=4, activation="softmax"),
-        ]
-    )
+    model = tf.keras.Sequential([
+        tf.keras.Input(shape=(args.image_width, args.image_height, 3)),  # RGB input
+        base_model,  # MobileNetV3Small
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dropout(0.2),
+        tf.keras.layers.Dense(units=num_classes, activation="softmax"),  # Adjust for number of classes
+    ])
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(1e-5),
@@ -155,9 +130,7 @@ if __name__ == "__main__":
 
     model.summary()
 
-    print(
-        "Number of trainable weights = {}".format(len(model.trainable_weights))
-    )
+    print("Number of trainable weights = {}".format(len(model.trainable_weights)))
 
     # Train the custom head
     history = model.fit(
@@ -167,33 +140,32 @@ if __name__ == "__main__":
         validation_data=val_generator,
         validation_steps=len(val_generator),
     )
-    
-    if args.print_plot:
-        acc = history.history['accuracy']
-        val_acc = history.history['val_accuracy']
 
-        loss = history.history['loss']
-        val_loss = history.history['val_loss']
+    if args.print_plot:
+        acc = history.history["accuracy"]
+        val_acc = history.history["val_accuracy"]
+
+        loss = history.history["loss"]
+        val_loss = history.history["val_loss"]
 
         plt.figure(figsize=(8, 8))
         plt.subplot(2, 1, 1)
-        plt.plot(acc, label='Training Accuracy')
-        plt.plot(val_acc, label='Validation Accuracy')
-        plt.legend(loc='lower right')
-        plt.ylabel('Accuracy')
-        plt.ylim([min(plt.ylim()),1])
-        plt.title('Training and Validation Accuracy')
+        plt.plot(acc, label="Training Accuracy")
+        plt.plot(val_acc, label="Validation Accuracy")
+        plt.legend(loc="lower right")
+        plt.ylabel("Accuracy")
+        plt.ylim([min(plt.ylim()), 1])
+        plt.title("Training and Validation Accuracy")
 
         plt.subplot(2, 1, 2)
-        plt.plot(loss, label='Training Loss')
-        plt.plot(val_loss, label='Validation Loss')
-        plt.legend(loc='upper right')
-        plt.ylabel('Cross Entropy')
-        plt.ylim([0,1.0])
-        plt.title('Training and Validation Loss')
-        plt.xlabel('epoch')
+        plt.plot(loss, label="Training Loss")
+        plt.plot(val_loss, label="Validation Loss")
+        plt.legend(loc="upper right")
+        plt.ylabel("Cross Entropy")
+        plt.ylim([0, 1.0])
+        plt.title("Training and Validation Loss")
+        plt.xlabel("epoch")
         plt.show()
-
 
     # Fine-tune the model
     print("Number of layers in the base model: ", len(base_model.layers))
@@ -213,9 +185,7 @@ if __name__ == "__main__":
 
     model.summary()
 
-    print(
-        "Number of trainable weights = {}".format(len(model.trainable_weights))
-    )
+    print("Number of trainable weights = {}".format(len(model.trainable_weights)))
 
     history_fine = model.fit(
         train_generator,
@@ -224,31 +194,31 @@ if __name__ == "__main__":
         validation_data=val_generator,
         validation_steps=len(val_generator),
     )
-    
-    if args.print_plot:
-        acc = history_fine.history['accuracy']
-        val_acc = history_fine.history['val_accuracy']
 
-        loss = history_fine.history['loss']
-        val_loss = history_fine.history['val_loss']
+    if args.print_plot:
+        acc = history_fine.history["accuracy"]
+        val_acc = history_fine.history["val_accuracy"]
+
+        loss = history_fine.history["loss"]
+        val_loss = history_fine.history["val_loss"]
 
         plt.figure(figsize=(8, 8))
         plt.subplot(2, 1, 1)
-        plt.plot(acc, label='Training Accuracy')
-        plt.plot(val_acc, label='Validation Accuracy')
-        plt.legend(loc='lower right')
-        plt.ylabel('Accuracy')
-        plt.ylim([min(plt.ylim()),1])
-        plt.title('Training and Validation Accuracy')
+        plt.plot(acc, label="Training Accuracy")
+        plt.plot(val_acc, label="Validation Accuracy")
+        plt.legend(loc="lower right")
+        plt.ylabel("Accuracy")
+        plt.ylim([min(plt.ylim()), 1])
+        plt.title("Training and Validation Accuracy")
 
         plt.subplot(2, 1, 2)
-        plt.plot(loss, label='Training Loss')
-        plt.plot(val_loss, label='Validation Loss')
-        plt.legend(loc='upper right')
-        plt.ylabel('Cross Entropy')
-        plt.ylim([0,1.0])
-        plt.title('Training and Validation Loss')
-        plt.xlabel('epoch')
+        plt.plot(loss, label="Training Loss")
+        plt.plot(val_loss, label="Validation Loss")
+        plt.legend(loc="upper right")
+        plt.ylabel("Cross Entropy")
+        plt.ylim([0, 1.0])
+        plt.title("Training and Validation Loss")
+        plt.xlabel("epoch")
         plt.show()
 
     # Convert to TensorFlow lite
@@ -257,6 +227,7 @@ if __name__ == "__main__":
 
     with open(f"{ROOT_PATH}/model/classification.tflite", "wb") as f:
         f.write(tflite_model)
+
     # Convert to quantized TensorFlow Lite
     def representative_data_gen():
         dataset_list = tf.data.Dataset.list_files(DATASET_PATH + "/*/*/*")
@@ -264,9 +235,7 @@ if __name__ == "__main__":
             image = next(iter(dataset_list))
             image = tf.io.read_file(image)
             image = tf.io.decode_png(image, channels=1)
-            image = tf.image.resize(
-                image, [args.image_width, args.image_height]
-            )
+            image = tf.image.resize(image, [args.image_width, args.image_height])
             image = tf.cast(image, tf.float32)
             image = tf.expand_dims(image, 0)
             yield [image]
@@ -280,9 +249,7 @@ if __name__ == "__main__":
     converter.inference_output_type = tf.uint8
     tflite_model = converter.convert()
 
-    with open(
-        f"{ROOT_PATH}/model/classification_q.tflite", "wb"
-    ) as f:
+    with open(f"{ROOT_PATH}/model/classification_q.tflite", "wb") as f:
         f.write(tflite_model)
 
     batch_images, batch_labels = next(val_generator)
@@ -313,9 +280,7 @@ if __name__ == "__main__":
         top_1 = np.argmax(output)
         return top_1
 
-    interpreter = tf.lite.Interpreter(
-        f"{ROOT_PATH}/model/classification_q.tflite"
-    )
+    interpreter = tf.lite.Interpreter(f"{ROOT_PATH}/model/classification_q.tflite")
     interpreter.allocate_tensors()
 
     # Collect all inference predictions in a list

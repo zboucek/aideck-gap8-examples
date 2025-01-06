@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 
 ROOT_PATH = (
-    f"{os.path.abspath(os.curdir)}/ai/classification/"
+    f"{os.path.abspath(os.curdir)}/examples/ai/classification/"
 )
 IMAGES_FOLDER = f"{ROOT_PATH}{'images'}"
 
