@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Demo for fine-tuning MobileNetv2 on a custom dataset, and generating an
+Demo for fine-tuning MobileNetv3Small on a custom dataset, and generating an
 (un)quantized TensorFlow lite model for inference on the AI-deck. 
 
 Based on TensorFlow "retrain classification" demo.
@@ -220,6 +220,9 @@ if __name__ == "__main__":
         plt.title("Training and Validation Loss")
         plt.xlabel("epoch")
         plt.show()
+        
+    # Save the model in TensorFlow SavedModel format
+    model.save(f"{ROOT_PATH}/model/saved_model")
 
     # Convert to TensorFlow lite
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
@@ -235,7 +238,7 @@ if __name__ == "__main__":
             image = next(iter(dataset_list))
             image = tf.io.read_file(image)
             image = tf.io.decode_png(image, channels=1)
-            image = tf.image.resize(image, [args.image_width, args.image_height])
+            image = tf.image.resize(image, [args.image_width, args.image_height,3])
             image = tf.cast(image, tf.float32)
             image = tf.expand_dims(image, 0)
             yield [image]
