@@ -8,3 +8,4 @@ examples/ai/classification/images/*
 examples/ai/classification/images_lab_bw.zip
 examples/ai/classification/class_labels.txt
 examples/ai/classification/validation/*
+examples/ai/classification/images copy/*
