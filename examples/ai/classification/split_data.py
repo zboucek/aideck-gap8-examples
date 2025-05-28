@@ -1,48 +1,47 @@
 import os
 import shutil
-import random
-import glob
+import tensorflow as tf
+import numpy as np
 
-ROOT_PATH     = os.path.abspath(os.curdir) + "/examples/ai/classification/"
-IMAGES_FOLDER = os.path.join(ROOT_PATH, "images")
-BASE_DIR      = os.path.join(ROOT_PATH, "training_data")
-TRAIN_DIR     = os.path.join(BASE_DIR, "train")
-VAL_DIR       = os.path.join(BASE_DIR, "validation")
+ROOT_PATH = (
+    f"{os.path.abspath(os.curdir)}/examples/ai/classification/"
+)
+IMAGES_FOLDER = f"{ROOT_PATH}{'images'}"
 
-# clean out any old data
-for d in (TRAIN_DIR, VAL_DIR):
-    if os.path.exists(d):
-        shutil.rmtree(d)
-    os.makedirs(d)
+# Folder structure
+base_dir = f"{ROOT_PATH}{'training_data'}"
+train_dir = os.path.join(base_dir, 'train')  
+val_dir = os.path.join(base_dir, 'validation')
 
-# get all class names
-classes = [d for d in os.listdir(IMAGES_FOLDER)
-           if os.path.isdir(os.path.join(IMAGES_FOLDER, d))]
+# Make folder structure
+os.makedirs(train_dir)
+os.makedirs(val_dir)
 
-# find smallest class size
-min_count = min(len(os.listdir(os.path.join(IMAGES_FOLDER, cls)))
-                for cls in classes)
+# Get class folders
+class_folders = os.listdir(IMAGES_FOLDER)
+        
+for cls_folder in class_folders:
 
-# for each class: sample, split, copy
-for cls in classes:
-    src = os.path.join(IMAGES_FOLDER, cls)
-    all_imgs = glob.glob(os.path.join(src, "*"))
-    random.shuffle(all_imgs)
+  # Copy images to train folder
+  cls_train_folder = os.path.join(train_dir, cls_folder)
+  shutil.copytree(os.path.join(IMAGES_FOLDER, cls_folder), cls_train_folder)
+  
+  # Get list of images
+  images = tf.data.Dataset.list_files(cls_train_folder + '/*')
+  
+  # Shuffle images
+  images = images.shuffle(buffer_size=1000) 
+  
+  # Split into train and validation
+  num_val = int(0.2 * tf.cast(images.cardinality(), tf.float32))
+  train_ds = images.skip(num_val)
+  val_ds = images.take(num_val)
 
-    # cap to min_count
-    sampled = all_imgs[:min_count]
-    n_val   = int(0.2 * min_count)
-    val_imgs   = sampled[:n_val]
-    train_imgs = sampled[n_val:]
-
-    # make dest dirs
-    target_train = os.path.join(TRAIN_DIR, cls)
-    target_val   = os.path.join(VAL_DIR, cls)
-    os.makedirs(target_train, exist_ok=True)
-    os.makedirs(target_val,   exist_ok=True)
-
-    # copy files
-    for p in val_imgs:
-        shutil.copy(p, os.path.join(target_val,   os.path.basename(p)))
-    for p in train_imgs:
-        shutil.copy(p, os.path.join(target_train, os.path.basename(p)))
+  # Move validation images to separate folder
+  cls_val_folder = os.path.join(val_dir, cls_folder)
+  os.makedirs(cls_val_folder)
+  
+  for img_path in val_ds:
+    img_path_bytes = np.bytes_(img_path)
+    img_path_str = tf.compat.as_text(img_path_bytes)
+    shutil.move(img_path_str, cls_val_folder+"/")
